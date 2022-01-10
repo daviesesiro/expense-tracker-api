@@ -1,10 +1,10 @@
 import cron from "node-cron";
-import { AccountService } from "../services/AccountService";
-import { Container } from "typedi";
+// import { AccountService } from "../services/AccountService";
+// import { Container } from "typedi";
 
-const accountService = Container.get(AccountService);
+// const accountService = Container.get(AccountService);
 
-// This feature is not yet activated
+// This manual data-sync is not yet activated on my account
 cron.schedule("0 */3 * * *", async () => {
-  await accountService.refreshAllAccounts();
+  // await accountService.refreshAllAccounts();
 });
