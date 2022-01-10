@@ -6,6 +6,7 @@ import config from "../config";
 import LoggerInstance from "./logger";
 import { Container } from "typedi";
 import { Logger } from "winston";
+import expressJwt from "express-jwt";
 
 export default async ({ app }: { app: Application }) => {
   // Useful if you're behind a reverse proxy (Heroku, Bluemix, AWS ELB, Nginx, etc)
@@ -13,6 +14,15 @@ export default async ({ app }: { app: Application }) => {
   app.enable("trust proxy");
   app.use(cors());
   app.use(express.json());
+  app.use(
+    expressJwt({
+      secret: config.jwtSecret,
+      algorithms: [config.jwtAlgorithm],
+      credentialsRequired: false,
+    }),
+  );
+
+  require("../jobs/refreshAccounts"); // load cron job
 
   // Load API routes
   app.use(config.api.prefix, routes());

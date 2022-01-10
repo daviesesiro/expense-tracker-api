@@ -9,12 +9,7 @@ interface AuthUser {
   password?: string;
   email: string;
 }
-
 interface JwtPayload {
   _id: string;
   email: string;
-}
-
-interface RefreshJwtPayload {
-  _id: string;
 }

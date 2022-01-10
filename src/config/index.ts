@@ -13,9 +13,6 @@ export default {
       ? "mongodb://localhost:27017/mono-app"
       : (process.env.DB_LINK as string),
 
-  /**
-   * Your secret sauce
-   */
   jwtSecret: process.env.JWT_SECRET!,
   jwtAlgorithm: process.env.JWT_ALGORITHM!,
   jwtExpiresIn: process.env.JWT_EXPIRES_IN!,
@@ -31,11 +28,10 @@ export default {
     prefix: "/",
   },
 
-  /**
-   * Frontend Endpoint (Susceptible to change, hence reason why the strings are put directly here)
-   */
-  frontendBaseurl:
-    process.env.NODE_ENV === "development"
-      ? "http://localhost:3000"
-      : "https://bloom-medic.herokuapp.com",
+  mono: {
+    secretKey: process.env.MONO_SECRET_KEY,
+    publicKey: process.env.MONO_PUBLIC_KEY,
+  },
+
+  frontendBaseurl: process.env.NODE_ENV === "development" ? "http://localhost:3000" : "",
 };

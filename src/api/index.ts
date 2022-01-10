@@ -1,6 +1,7 @@
 import { Router } from "express";
 
-import auth from "./routes/auth";
+import auth from "./routes/auth-routes";
+import account from "./routes/account-routes";
 import { Logger } from "winston";
 import { Container } from "typedi";
 
@@ -21,6 +22,7 @@ export default () => {
   });
 
   auth(app);
+  account(app);
 
   return app;
 };
