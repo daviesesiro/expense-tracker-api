@@ -58,7 +58,10 @@ export default (app: Router) => {
     const accountService = Container.get(AccountService);
 
     try {
-      const result = await accountService.getTransactionSummary(req.user!);
+      const result = await accountService.getTransactionSummary(
+        req.user!,
+        req.query.limit as string,
+      );
       return res.json(result);
     } catch (err) {
       return next(err);

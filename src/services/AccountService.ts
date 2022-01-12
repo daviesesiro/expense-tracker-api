@@ -154,7 +154,7 @@ export class AccountService {
     return transactions;
   }
 
-  async getTransactionSummary(user: AuthUser) {
+  async getTransactionSummary(user: AuthUser, limit?: string) {
     const result = await Transaction.aggregate([
       {
         $match: {
@@ -173,7 +173,7 @@ export class AccountService {
         },
       },
       { $sort: { _id: -1 } },
-      { $limit: 30 },
+      { $limit: parseInt(limit || "30") },
       { $project: { date: "$_id", amount: { $toString: "$amount" }, _id: 0 } },
     ]);
 
