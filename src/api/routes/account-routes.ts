@@ -43,6 +43,16 @@ export default (app: Router) => {
     }
   });
 
+  route.get("/:id/reauth-token", async (req: Request, res: Response, next: NextFunction) => {
+    const accountService = Container.get(AccountService);
+    try {
+      const result = await accountService.getReauthToken(req.user!, req.params.id as string);
+      return res.json(result);
+    } catch (err) {
+      return next(err);
+    }
+  });
+
   route.get("/transactions", async (req: Request, res: Response, next: NextFunction) => {
     const accountService = Container.get(AccountService);
 

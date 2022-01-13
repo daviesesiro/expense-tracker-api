@@ -8,6 +8,8 @@ dotenv.config();
 export default {
   port: parseInt(process.env.PORT!),
 
+  isDev: process.env.NODE_ENV,
+
   databaseURL:
     process.env.NODE_ENV === "development"
       ? "mongodb://localhost:27017/mono-app"
@@ -31,6 +33,7 @@ export default {
   mono: {
     secretKey: process.env.MONO_SECRET_KEY,
     publicKey: process.env.MONO_PUBLIC_KEY,
+    webhookSecret: process.env.MONO_WEBHOOK_SECRET,
   },
 
   frontendBaseurl: process.env.NODE_ENV === "development" ? "http://localhost:3000" : "",
