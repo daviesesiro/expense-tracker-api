@@ -1,27 +1,34 @@
-import { Service } from "typedi";
+import { Inject, Service } from "typedi";
 import Account from "../models/Account";
 import Transaction from "../models/Transaction";
 import { generateObjectId } from "../utils/generateObjectIds";
 import { MonoService } from "./MonoService";
 import { NotFound } from "http-errors";
+import dayjs from "dayjs";
+import { ITransaction } from "../interfaces/Transactiont";
+import { Logger } from "winston";
 
 @Service()
 export class AccountService {
-  constructor(private monoService: MonoService) {}
+  constructor(private monoService: MonoService, @Inject("logger") private logger: Logger) {}
 
   async refreshAllAccounts() {
     const accounts = await Account.find();
 
     for (let i = 0; i < accounts.length; i++) {
       const account = accounts[i];
+      this.logger.debug("refreshing account: %o", account._id.toString());
 
-      await this.monoService.syncAccount(account.accountId);
+      const { code } = await this.monoService.syncAccount(account.accountId);
+      if (code === "REAUTHORISATION_REQUIRED") {
+        await this.requireReauthorization(account.accountId);
+      }
     }
   }
 
   async userAccountSummary(user: AuthUser) {
-    const savings = await Account.countDocuments({ user: user._id, type: "savings_account" });
-    const current = await Account.countDocuments({ user: user._id, type: "current_account" });
+    const savings = await Account.countDocuments({ user: user._id, type: { $regex: "SAVINGS" } });
+    const current = await Account.countDocuments({ user: user._id, type: { $regex: "CURRENT" } });
 
     return { savings, current };
   }
@@ -30,20 +37,15 @@ export class AccountService {
     const result = await Account.aggregate([
       { $match: { user: generateObjectId(user._id) } },
       {
-        $addFields: {
-          convertedBalance: { $toDecimal: "$balance" },
-        },
-      },
-      {
         $group: {
           _id: null,
           totalBalance: {
-            $sum: "$convertedBalance",
+            $sum: "$balance",
           },
         },
       },
       {
-        $project: { _id: 0, totalBalance: { $toString: "$totalBalance" } },
+        $project: { _id: 0, totalBalance: 1 },
       },
     ]);
 
@@ -55,7 +57,6 @@ export class AccountService {
   async link(user: AuthUser, token: string) {
     const accountId = await this.monoService.getAccountId(token);
     const accountInfo = await this.monoService.getAccountInfo(accountId);
-
     let institutionLogo = "";
     // save the instution logo in memory
     if (!bankIconsMap[accountInfo.account.institution.name]) {
@@ -69,7 +70,7 @@ export class AccountService {
       accountNumber: accountInfo.account.accountNumber,
       accountId: accountInfo.account._id,
       type: accountInfo.account.type,
-      balance: accountInfo.account.balance,
+      balance: accountInfo.account.balance / 100, // convert to naira from kobo
       currency: accountInfo.account.currency,
       institutionName: accountInfo.account.institution.name,
       user: user._id,
@@ -102,6 +103,16 @@ export class AccountService {
     return accounts;
   }
 
+  async getReauthToken(user: AuthUser, id: string) {
+    const account = await Account.findOne({ _id: id, user: user._id });
+
+    if (!account) {
+      throw new NotFound("Account not found");
+    }
+
+    return this.monoService.getReauthToken(account.accountId);
+  }
+
   async getUserAccountTransactions(
     user: AuthUser,
     pagination: {
@@ -112,27 +123,46 @@ export class AccountService {
   ) {
     const accountId = pagination?.account_id;
 
-    const account = await Account.findOne({
+    const accounts = await Account.find({
       user: generateObjectId(user._id),
       ...(accountId && accountId !== "" && { _id: generateObjectId(accountId) }),
     });
 
-    if (!account) {
-      throw new NotFound("Account does not exist");
-    }
+    for (let i = 0; i < accounts.length; i++) {
+      const account = accounts[i];
 
-    if (accountId) {
-      const accountTransaction = await Transaction.findOne({ account: account._id });
-
-      if (!accountTransaction) {
-        const newTransactions = await this.monoService.getAccountTransactions(account.accountId, {
-          paginate: "false",
+      if (account.transactionsStale) {
+        let newTrns = await this.monoService.getAccountTransactions(account.accountId, {
+          ...(account.lastTransactionDate && {
+            start: dayjs(account.lastTransactionDate).format("DD-MM-YYYY"),
+            end: dayjs().add(1, "day").format("DD-MM-YYYY"),
+          }),
         });
 
-        const payload = newTransactions.data.map((p: any) => ({
-          ...p,
+        if (account.lastTransactionDate) {
+          console.log(newTrns);
+          // remove transactions before the last transction date
+          newTrns.data = newTrns.data.filter((t: Partial<ITransaction>) =>
+            dayjs(t.date).isAfter(account.lastTransactionDate),
+          );
+
+          console.log(newTrns);
+        }
+
+        // the last transaction is the first in the array
+        const lastTransactionDate = newTrns.data.length > 0 ? newTrns.data[0]?.date : null;
+        await Account.updateOne(
+          { _id: account._id },
+          { lastTransactionDate, transactionsStale: false },
+        );
+
+        const payload = newTrns.data.map((p: any) => ({
+          amount: p.amount / 100, // convert to naira from kobo
           user: user._id,
-          account: accountId,
+          account: account._id,
+          narration: p.narration,
+          type: p.type,
+          date: p.date,
         }));
 
         await Transaction.insertMany(payload);
@@ -142,10 +172,11 @@ export class AccountService {
     const transactions = await Transaction.paginate(
       {
         user: user._id,
-        ...(accountId && accountId !== "" ? { account: accountId } : {}),
+        account: { $in: accounts },
       },
       {
         page: pagination.page || 1,
+        sort: { date: -1 },
         limit: pagination.limit || 10,
         lean: true,
       },
@@ -156,28 +187,35 @@ export class AccountService {
 
   async getTransactionSummary(user: AuthUser, limit?: string) {
     const result = await Transaction.aggregate([
-      {
-        $match: {
-          user: generateObjectId(user._id),
-        },
-      },
-      {
-        $addFields: {
-          convertedAmount: { $divide: [{ $toDecimal: "$amount" }, 100] },
-        },
-      },
+      { $match: { user: generateObjectId(user._id) } },
       {
         $group: {
           _id: { $dateToString: { format: "%Y-%m-%d", date: "$date" } },
-          amount: { $sum: "$convertedAmount" },
+          amount: { $sum: "$amount" },
         },
       },
       { $sort: { _id: -1 } },
       { $limit: parseInt(limit || "30") },
-      { $project: { date: "$_id", amount: { $toString: "$amount" }, _id: 0 } },
+      { $project: { date: "$_id", amount: 1, _id: 0 } },
     ]);
 
     return result;
+  }
+
+  // webhooks methods
+  async requireReauthorization(accountId: string) {
+    await Account.updateOne({ accountId }, { dataAvailable: false, reAuthorize: true });
+  }
+
+  async completeReauthorization(accountId: string) {
+    await Account.updateOne({ accountId }, { reAuthorize: false });
+  }
+
+  async updateAccount(accountId: string, account: LooseObject) {
+    await Account.updateOne(
+      { accountId },
+      { dataAvailable: true, transactionsStale: true, balance: Number(account.balance) / 100 },
+    );
   }
 }
 

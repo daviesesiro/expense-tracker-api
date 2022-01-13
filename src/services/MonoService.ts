@@ -28,15 +28,10 @@ export class MonoService {
       });
   }
 
-  async getAccountTransactions(
-    accountId: string,
-    filter: { start?: string; end?: string; paginate?: string } = {},
-  ) {
-    filter.paginate = filter?.paginate || "false";
-
+  async getAccountTransactions(accountId: string, filter: { start?: string; end?: string } = {}) {
     const query = new URLSearchParams(filter);
     return axios
-      .get(`/accounts/${accountId}/transactions?${query.toString()}`)
+      .get(`/accounts/${accountId}/transactions?paginate=false&${query.toString()}`)
       .then((res) => res.data)
       .catch((err) => {
         this.logger.error(err?.response?.data);
@@ -99,7 +94,7 @@ export class MonoService {
   async syncAccount(accountId: string) {
     return axios
       .post(`/accounts/${accountId}/sync`)
-      .then((res) => res.data?.token)
+      .then((res) => res.data)
       .catch((err) => {
         this.logger.error(err?.response?.data);
         throw createHttpError(err?.response?.status, err?.response?.data?.message);

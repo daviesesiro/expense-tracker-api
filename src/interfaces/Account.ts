@@ -10,6 +10,10 @@ export interface IAccount {
   institutionName: string;
   currency: string;
   institutionLogo: string;
+
+  lastTransactionDate: Date;
+  transactionsStale: boolean;
+
   dataAvailable: boolean;
   reAuthorize: boolean;
 }

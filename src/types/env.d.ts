@@ -8,5 +8,6 @@ declare namespace NodeJS {
     NODE_ENV: string;
     MONO_PUBLIC_KEY: string;
     MONO_SECRET_KEY: string;
+    MONO_WEBHOOK_SECRET: string;
   }
 }

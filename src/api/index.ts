@@ -1,11 +1,10 @@
 import { Router } from "express";
-
-import auth from "./routes/auth-routes";
-import account from "./routes/account-routes";
-import { Logger } from "winston";
 import { Container } from "typedi";
+import { Logger } from "winston";
+import account from "./routes/account-routes";
+import auth from "./routes/auth-routes";
+import webhook from "./routes/webhook-routes";
 
-// guaranteed to get dependencies
 export default () => {
   const app = Router();
 
@@ -23,6 +22,7 @@ export default () => {
 
   auth(app);
   account(app);
+  webhook(app);
 
   return app;
 };
