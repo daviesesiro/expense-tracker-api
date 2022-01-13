@@ -22,7 +22,7 @@ export default (app: Router) => {
         accountService.requireReauthorization(data.account._id);
         break;
       case "mono.events.account_connected":
-        console.log("Account connected: %o", data);
+        // nothing to do here
         break;
       case "mono.events.account_reauthorized":
         accountService.completeReauthorization(data.account._id);

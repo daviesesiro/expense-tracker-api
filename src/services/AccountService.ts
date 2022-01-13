@@ -145,8 +145,6 @@ export class AccountService {
           newTrns.data = newTrns.data.filter((t: Partial<ITransaction>) =>
             dayjs(t.date).isAfter(account.lastTransactionDate),
           );
-
-          console.log(newTrns);
         }
 
         // the last transaction is the first in the array
