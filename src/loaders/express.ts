@@ -27,6 +27,10 @@ export default async ({ app }: { app: Application }) => {
   // Load API routes
   app.use(config.api.prefix, routes());
 
+  app.get("/health", (_req, res) => {
+    res.sendStatus(200);
+  });
+
   // catch 404 and forward to error handler
   app.use((_req, _res, next) => {
     const err = new Error("404 Not Found");

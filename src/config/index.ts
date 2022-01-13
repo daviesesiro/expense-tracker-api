@@ -8,7 +8,7 @@ dotenv.config();
 export default {
   port: parseInt(process.env.PORT!),
 
-  isDev: process.env.NODE_ENV,
+  isDev: process.env.NODE_ENV === "development",
 
   databaseURL:
     process.env.NODE_ENV === "development"
