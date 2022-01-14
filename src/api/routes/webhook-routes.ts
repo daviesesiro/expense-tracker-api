@@ -35,9 +35,7 @@ export default (app: Router) => {
       default:
         break;
     }
-    // const accountService = Container.get(MonoService);
     try {
-      //   const result = await accountService.link(req.user!, req.body?.token);
       return res.sendStatus(200);
     } catch (err) {
       return next(err);
